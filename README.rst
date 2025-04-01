@@ -95,3 +95,9 @@ Tips:
 - If the LED is built in to your board hardware, the alias should be defined in
   your :ref:`BOARD.dts file <devicetree-in-out-files>`. Otherwise, you can
   define one in a :ref:`devicetree overlay <set-devicetree-overlays>`.
+
+Flashing
+********
+
+The buttons of the nRF connect SDK are bound to custom tasks that call nrfutil to flash via Segger J-Link.
+The binary directory of nrfutil has to be on the system path.

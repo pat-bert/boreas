@@ -1,0 +1,15 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "type": "nrf-connect-shell",
+        "label": "Flash with nrfutil",
+        "command": "nrfutil device program --firmware ${workspaceFolder}\\build\\merged.hex && nrfutil device reset",
+      },
+      {
+        "type": "nrf-connect-shell",
+        "label": "Erase and flash with nrfutil",
+        "command": "nrfutil device erase && nrfutil device program --firmware ${workspaceFolder}\\build\\merged.hex && nrfutil device reset",  
+      },
+    ]
+  }

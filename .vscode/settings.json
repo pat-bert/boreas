@@ -1,0 +1,22 @@
+{
+    "nrf-connect.taskBindings": {
+        "flash": [
+            {
+                "taskName": "Flash with nrfutil",
+                "buildConfigs": [
+                    "${workspaceFolder}\\build",
+                    "${workspaceFolder}\\build\\boreas"
+                ]
+            }
+        ],
+        "eraseAndFlash": [
+            {
+                "taskName": "Erase and flash with nrfutil",
+                "buildConfigs": [
+                    "${workspaceFolder}\\build",
+                    "${workspaceFolder}\\build\\boreas"
+                ]
+            }
+        ]
+    }
+}
