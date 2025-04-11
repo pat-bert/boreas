@@ -16,6 +16,13 @@
 						"${workspaceFolder}\\build",
 						"${workspaceFolder}\\build\\boreas"
 					]
+				},
+				{
+					"taskName": "Flash with nrfutil",
+					"buildConfigs": [
+						"${workspaceFolder}\\build",
+						"${workspaceFolder}\\build\\boreas"
+					]
 				}
 			],
 			"eraseAndFlash": [
@@ -25,8 +32,22 @@
 						"${workspaceFolder}\\build",
 						"${workspaceFolder}\\build\\boreas"
 					]
+				},
+				{
+					"taskName": "Erase and flash with nrfutil",
+					"buildConfigs": [
+						"${workspaceFolder}\\build",
+						"${workspaceFolder}\\build\\boreas"
+					]
 				}
 			]
+		},
+		"files.associations": {
+			"lm95234.h": "c",
+			"gpio.h": "c",
+			"sensor.h": "c",
+			"lsm9ds1.h": "c",
+			"devicetree_generated.h": "c"
 		}
 	},
 	"extensions": {
