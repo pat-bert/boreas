@@ -26,7 +26,7 @@ static inline float out_ev(struct sensor_value *val)
 	return (val->val1 + (float)val->val2 / 1000000);
 }
 
-static void fetch_and_display_imu(const struct device *dev)
+static void process_sample_imu(const struct device *dev)
 {
 	struct sensor_value x, y, z;
 
@@ -36,8 +36,7 @@ static void fetch_and_display_imu(const struct device *dev)
 	sensor_channel_get(dev, SENSOR_CHAN_ACCEL_Y, &y);
 	sensor_channel_get(dev, SENSOR_CHAN_ACCEL_Z, &z);
 
-	printk("accel x:%f ms/2 y:%f ms/2 z:%f ms/2\n",
-			(double)out_ev(&x), (double)out_ev(&y), (double)out_ev(&z));
+	printk("%s\t - accel x:%f ms/2 y:%f ms/2 z:%f ms/2\n", dev->name, (double)out_ev(&x), (double)out_ev(&y), (double)out_ev(&z));
 
 	/* lsm6dso gyro */
 	sensor_sample_fetch_chan(dev, SENSOR_CHAN_GYRO_XYZ);
@@ -45,8 +44,7 @@ static void fetch_and_display_imu(const struct device *dev)
 	sensor_channel_get(dev, SENSOR_CHAN_GYRO_Y, &y);
 	sensor_channel_get(dev, SENSOR_CHAN_GYRO_Z, &z);
 
-	printk("gyro x:%f rad/s y:%f rad/s z:%f rad/s\n",
-			(double)out_ev(&x), (double)out_ev(&y), (double)out_ev(&z));
+	printk("%s\t - gyro x:%f rad/s y:%f rad/s z:%f rad/s\n", dev->name, (double)out_ev(&x), (double)out_ev(&y), (double)out_ev(&z));
 }
 
 static int set_sampling_freq_imu(const struct device *dev)
@@ -59,15 +57,17 @@ static int set_sampling_freq_imu(const struct device *dev)
 	odr_attr.val2 = 0;
 
 	ret = sensor_attr_set(dev, SENSOR_CHAN_ACCEL_XYZ,
-			SENSOR_ATTR_SAMPLING_FREQUENCY, &odr_attr);
-	if (ret != 0) {
+						  SENSOR_ATTR_SAMPLING_FREQUENCY, &odr_attr);
+	if (ret != 0)
+	{
 		printk("Cannot set sampling frequency for accelerometer.\n");
 		return ret;
 	}
 
 	ret = sensor_attr_set(dev, SENSOR_CHAN_GYRO_XYZ,
-			SENSOR_ATTR_SAMPLING_FREQUENCY, &odr_attr);
-	if (ret != 0) {
+						  SENSOR_ATTR_SAMPLING_FREQUENCY, &odr_attr);
+	if (ret != 0)
+	{
 		printk("Cannot set sampling frequency for gyro.\n");
 		return ret;
 	}
@@ -79,27 +79,57 @@ static void process_sample_pressure(const struct device *dev)
 {
 	struct sensor_value pressure, temp;
 
-	if (sensor_sample_fetch(dev) < 0) {
+	if (sensor_sample_fetch(dev) < 0)
+	{
 		printk("Sensor sample update error\n");
 		return;
 	}
 
-	if (sensor_channel_get(dev, SENSOR_CHAN_PRESS, &pressure) < 0) {
+	if (sensor_channel_get(dev, SENSOR_CHAN_PRESS, &pressure) < 0)
+	{
 		printk("Cannot read LPS22HB pressure channel\n");
 		return;
 	}
 
-	if (sensor_channel_get(dev, SENSOR_CHAN_AMBIENT_TEMP, &temp) < 0) {
+	if (sensor_channel_get(dev, SENSOR_CHAN_AMBIENT_TEMP, &temp) < 0)
+	{
 		printk("Cannot read LPS22HB temperature channel\n");
 		return;
 	}
 
 	/* display pressure */
-	printk("Pressure:%.1f kPa\n", sensor_value_to_double(&pressure));
+	printk("%s\t - Pressure:%.1f kPa\n", dev->name, sensor_value_to_double(&pressure));
 
 	/* display temperature */
-	printk("Temperature:%.1f C\n", sensor_value_to_double(&temp));
+	printk("%s\t - Temperature:%.1f C\n", dev->name, sensor_value_to_double(&temp));
+}
 
+static void process_sample_humidity(const struct device *dev)
+{
+	struct sensor_value temp, hum;
+	if (sensor_sample_fetch(dev) < 0)
+	{
+		printk("Sensor sample update error\n");
+		return;
+	}
+
+	if (sensor_channel_get(dev, SENSOR_CHAN_AMBIENT_TEMP, &temp) < 0)
+	{
+		printk("Cannot read HTS221 temperature channel\n");
+		return;
+	}
+
+	if (sensor_channel_get(dev, SENSOR_CHAN_HUMIDITY, &hum) < 0)
+	{
+		printk("Cannot read HTS221 humidity channel\n");
+		return;
+	}
+
+	/* display temperature */
+	printk("%s\t - Temperature:%.1f C\n", dev->name, sensor_value_to_double(&temp));
+
+	/* display humidity */
+	printk("%s\t - Relative Humidity:%.1f%%\n", dev->name, sensor_value_to_double(&hum));
 }
 
 int main(void)
@@ -109,6 +139,7 @@ int main(void)
 
 	const struct device *const imu = DEVICE_DT_GET_ONE(st_lsm9ds1);
 	const struct device *const pressureSensor = DEVICE_DT_GET_ONE(st_lps22hb_press);
+	const struct device *const humiditySensor = DEVICE_DT_GET_ONE(st_hts221);
 
 	if (!device_is_ready(imu))
 	{
@@ -122,18 +153,25 @@ int main(void)
 		return 0;
 	}
 
+	if (!device_is_ready(humiditySensor))
+	{
+		printk("%s: device not ready.\n", humiditySensor->name);
+		return 0;
+	}
+
 	if (!gpio_is_ready_dt(&led))
 	{
 		printk("LED GPIO not ready.\n");
 		return 0;
 	}
 
-	if (set_sampling_freq_imu(imu) != 0) {
+	ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
+	if (ret < 0)
+	{
 		return 0;
 	}
 
-	ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
-	if (ret < 0)
+	if (set_sampling_freq_imu(imu) != 0)
 	{
 		return 0;
 	}
@@ -148,8 +186,9 @@ int main(void)
 
 		ledState = !ledState;
 		printk("LED state: %s\n", ledState ? "ON" : "OFF");
-		fetch_and_display_imu(imu);
+		process_sample_imu(imu);
 		process_sample_pressure(pressureSensor);
+		process_sample_humidity(humiditySensor);
 		k_msleep(SLEEP_TIME_MS);
 	}
 	return 0;
