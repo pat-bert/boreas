@@ -26,12 +26,9 @@ static inline float out_ev(struct sensor_value *val)
 	return (val->val1 + (float)val->val2 / 1000000);
 }
 
-static void fetch_and_display(const struct device *dev)
+static void fetch_and_display_imu(const struct device *dev)
 {
 	struct sensor_value x, y, z;
-	static int trig_cnt;
-
-	trig_cnt++;
 
 	/* lsm6dso accel */
 	sensor_sample_fetch_chan(dev, SENSOR_CHAN_ACCEL_XYZ);
@@ -50,11 +47,9 @@ static void fetch_and_display(const struct device *dev)
 
 	printk("gyro x:%f rad/s y:%f rad/s z:%f rad/s\n",
 			(double)out_ev(&x), (double)out_ev(&y), (double)out_ev(&z));
-
-	printk("trig_cnt:%d\n\n", trig_cnt);
 }
 
-static int set_sampling_freq(const struct device *dev)
+static int set_sampling_freq_imu(const struct device *dev)
 {
 	int ret = 0;
 	struct sensor_value odr_attr;
@@ -80,25 +75,60 @@ static int set_sampling_freq(const struct device *dev)
 	return 0;
 }
 
+static void process_sample_pressure(const struct device *dev)
+{
+	struct sensor_value pressure, temp;
+
+	if (sensor_sample_fetch(dev) < 0) {
+		printk("Sensor sample update error\n");
+		return;
+	}
+
+	if (sensor_channel_get(dev, SENSOR_CHAN_PRESS, &pressure) < 0) {
+		printk("Cannot read LPS22HB pressure channel\n");
+		return;
+	}
+
+	if (sensor_channel_get(dev, SENSOR_CHAN_AMBIENT_TEMP, &temp) < 0) {
+		printk("Cannot read LPS22HB temperature channel\n");
+		return;
+	}
+
+	/* display pressure */
+	printk("Pressure:%.1f kPa\n", sensor_value_to_double(&pressure));
+
+	/* display temperature */
+	printk("Temperature:%.1f C\n", sensor_value_to_double(&temp));
+
+}
+
 int main(void)
 {
 	int ret;
-	bool led_state = true;
+	bool ledState = true;
 
-	const struct device *const dev = DEVICE_DT_GET_ONE(st_lsm9ds1);
+	const struct device *const imu = DEVICE_DT_GET_ONE(st_lsm9ds1);
+	const struct device *const pressureSensor = DEVICE_DT_GET_ONE(st_lps22hb_press);
 
-	if (!device_is_ready(dev))
+	if (!device_is_ready(imu))
 	{
-		printk("%s: device not ready.\n", dev->name);
+		printk("%s: device not ready.\n", imu->name);
 		return 0;
 	}
 
-	if (set_sampling_freq(dev) != 0) {
+	if (!device_is_ready(pressureSensor))
+	{
+		printk("%s: device not ready.\n", pressureSensor->name);
 		return 0;
 	}
 
 	if (!gpio_is_ready_dt(&led))
 	{
+		printk("LED GPIO not ready.\n");
+		return 0;
+	}
+
+	if (set_sampling_freq_imu(imu) != 0) {
 		return 0;
 	}
 
@@ -116,9 +146,10 @@ int main(void)
 			return 0;
 		}
 
-		led_state = !led_state;
-		printk("LED state: %s\n", led_state ? "ON" : "OFF");
-		fetch_and_display(dev);
+		ledState = !ledState;
+		printk("LED state: %s\n", ledState ? "ON" : "OFF");
+		fetch_and_display_imu(imu);
+		process_sample_pressure(pressureSensor);
 		k_msleep(SLEEP_TIME_MS);
 	}
 	return 0;
