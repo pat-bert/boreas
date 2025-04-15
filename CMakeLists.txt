@@ -4,4 +4,12 @@ cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(boreas)
 
-target_sources(app PRIVATE src/main.cpp)
+target_sources(
+    app
+    PRIVATE
+    src/environment.cpp
+    src/environment.hpp
+    src/imu.cpp
+    src/imu.hpp
+    src/main.cpp
+)
