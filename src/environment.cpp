@@ -2,9 +2,11 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/sensor.h>
-#include <zephyr/sys/printk.h>
+#include <zephyr/logging/log.h>
 
 #include <cmath>
+
+LOG_MODULE_REGISTER(environment);
 
 namespace Env
 {
@@ -14,13 +16,13 @@ namespace Env
     {
         if (sensor_sample_fetch(dev) < 0)
         {
-            printk("LPS22HB sample update error\n");
+            LOG_ERR("LPS22HB sample update error");
             return false;
         }
 
         if (sensor_channel_get(dev, SENSOR_CHAN_PRESS, pressure) < 0)
         {
-            printk("Cannot read LPS22HB pressure channel\n");
+            LOG_ERR("Cannot read LPS22HB pressure channel");
             return false;
         }
 
@@ -31,19 +33,19 @@ namespace Env
     {
         if (sensor_sample_fetch(dev) < 0)
         {
-            printk("HTS221 sample update error\n");
+            LOG_ERR("HTS221 sample update error");
             return false;
         }
 
         if (sensor_channel_get(dev, SENSOR_CHAN_AMBIENT_TEMP, temperature) < 0)
         {
-            printk("Cannot read HTS221 temperature channel\n");
+            LOG_ERR("Cannot read HTS221 temperature channel");
             return false;
         }
 
         if (sensor_channel_get(dev, SENSOR_CHAN_HUMIDITY, humidity) < 0)
         {
-            printk("Cannot read HTS221 humidity channel\n");
+            LOG_ERR("Cannot read HTS221 humidity channel");
             return false;
         }
 
@@ -64,13 +66,13 @@ namespace Env
 
         if (!device_is_ready(pressureSensor))
         {
-            printk("%s: device not ready.\n", pressureSensor->name);
+            LOG_ERR("%s: device not ready.", pressureSensor->name);
             return;
         }
 
         if (!device_is_ready(humiditySensor))
         {
-            printk("%s: device not ready.\n", humiditySensor->name);
+            LOG_ERR("%s: device not ready.", humiditySensor->name);
             return;
         }
 
@@ -82,15 +84,15 @@ namespace Env
             const bool successPressure{process_sample_pressure(pressureSensor, &pressure)};
             if (successPressure)
             {
-                printk("Pressure:%.1f kPa\n", sensor_value_to_double(&pressure));
+                LOG_INF("Pressure:%.1f kPa", sensor_value_to_double(&pressure));
             }
 
             const bool successTempAndHum{process_sample_humidity(humiditySensor, &temperature, &humidity)};
             if (successTempAndHum)
             {
                 // Temperature seems to be inaccurate when powered via USB due to self-heating
-                printk("Temperature:%.1f C\n", sensor_value_to_double(&temperature));
-                printk("Relative Humidity:%.1f%%\n", sensor_value_to_double(&humidity));
+                LOG_INF("Temperature:%.1f C", sensor_value_to_double(&temperature));
+                LOG_INF("Relative Humidity:%.1f%%", sensor_value_to_double(&humidity));
             }
 
             if (successPressure && successTempAndHum)
@@ -101,7 +103,7 @@ namespace Env
                 constexpr double standardLapseRate{-0.0065};
                 const double height = ((std::pow(pressureReference / pressureDouble, 5.257) - 1.0) * celsius2kelvin(temperatureDouble)) / -standardLapseRate;
 
-                printk("Relative height:%.1f m\n", height);
+                LOG_INF("Relative height:%.1f m", height);
             }
 
             int64_t elapsedTime = k_uptime_get() - startTime;
@@ -113,7 +115,7 @@ namespace Env
             }
             else
             {
-                printk("Deadline missed. Elapsed time %lld ms\n", elapsedTime);
+                LOG_ERR("Deadline missed. Elapsed time %lld ms", elapsedTime);
             }
         }
     }

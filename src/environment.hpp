@@ -6,4 +6,4 @@ namespace Env
     void thread(void *, void *, void *);
 }
 
-#endif ENVIRONMENT_HPP_INCLUDED
+#endif

@@ -2,7 +2,9 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/sensor.h>
-#include <zephyr/sys/printk.h>
+#include <zephyr/logging/log.h>
+
+LOG_MODULE_REGISTER(imu);
 
 namespace Imu
 {
@@ -18,7 +20,7 @@ namespace Imu
         const struct device *const imu = DEVICE_DT_GET_ONE(st_lsm9ds1);
         if (!device_is_ready(imu))
         {
-            printk("%s: device not ready.\n", imu->name);
+            LOG_ERR("%s: device not ready.", imu->name);
             return;
         }
 
@@ -44,8 +46,8 @@ namespace Imu
 
             if (count % 100 == 0)
             {
-                printk("accel x:%f ms/2 y:%f ms/2 z:%f ms/2\n", (double)out_ev(&x), (double)out_ev(&y), (double)out_ev(&z));
-                printk("gyro x:%f rad/s y:%f rad/s z:%f rad/s\n", (double)out_ev(&x), (double)out_ev(&y), (double)out_ev(&z));
+                LOG_INF("accel x:%f ms/2 y:%f ms/2 z:%f ms/2", (double)out_ev(&x), (double)out_ev(&y), (double)out_ev(&z));
+                LOG_INF("gyro x:%f rad/s y:%f rad/s z:%f rad/s", (double)out_ev(&x), (double)out_ev(&y), (double)out_ev(&z));
             }
 
             int64_t elapsedTime = k_uptime_get() - startTime;
@@ -57,7 +59,7 @@ namespace Imu
             }
             else
             {
-                printk("Deadline missed. Elapsed time %lld ms\n", elapsedTime);
+                LOG_ERR("Deadline missed. Elapsed time %lld ms", elapsedTime);
             }
         }
     }
