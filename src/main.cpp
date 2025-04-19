@@ -17,7 +17,7 @@
 /* The devicetree node identifier for the "led0" alias. */
 #define LED3_NODE DT_ALIAS(led3)
 
-#define IMU_STACK_SIZE 500
+#define IMU_STACK_SIZE 1000
 #define IMU_PRIORITY 5
 #define ENVIRONMENT_STACK_SIZE 500
 #define ENVIRONMENT_PRIORITY 6
