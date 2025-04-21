@@ -1,5 +1,7 @@
 #include "imu.hpp"
 
+#include "universalConstants.hpp"
+
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/logging/log.h>
@@ -12,8 +14,6 @@ namespace Imu
 {
     constexpr int64_t imuTaskDurationMs{1000 / 119};
     constexpr float imuTaskDuration_f{static_cast<float>(imuTaskDurationMs) / 1000.0F};
-    constexpr float pi{3.1415927F};
-    constexpr float earthAcceleration{9.81F};
 
     float wrapToPi(float angle)
     {

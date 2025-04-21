@@ -12,4 +12,5 @@ target_sources(
     src/imu.cpp
     src/imu.hpp
     src/main.cpp
+    src/universalConstants.hpp
 )

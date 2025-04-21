@@ -1,5 +1,7 @@
 #include "environment.hpp"
 
+#include "universalConstants.hpp"
+
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/logging/log.h>
@@ -55,6 +57,12 @@ namespace Env
     constexpr float celsius2kelvin(float celsius)
     {
         return celsius + 273.15F;
+    }
+
+    float calculateAltitude(float pressureReference, float pressure, float temperature)
+    {
+        constexpr float barometricExponent{universalGasConstant * standardLapseRate / (earthAcceleration * molarMassAir)};
+        return ((std::pow(pressureReference / pressure, barometricExponent) - 1.0F) * celsius2kelvin(temperature)) / standardLapseRate;
     }
 
     void thread(void *, void *, void *)
@@ -118,11 +126,8 @@ namespace Env
             {
                 const float pressure{sensor_value_to_float(&pressureRaw)};
                 const float temperature{sensor_value_to_float(&temperatureRaw)};
-
-                constexpr float standardLapseRate{-0.0065F};
-                const float height{((std::pow(pressureReference / pressure, 5.257F) - 1.0F) * celsius2kelvin(temperature)) / -standardLapseRate};
-
-                LOG_INF("Relative height:%.1f m", height);
+                const float altitude{calculateAltitude(pressureReference, pressure, temperature)};
+                LOG_INF("Relative altitude:%.2f m", altitude);
             }
 
             int64_t elapsedTime = k_uptime_get() - startTime;

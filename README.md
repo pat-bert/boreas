@@ -53,7 +53,6 @@ openssl ecparam -name prime256v1 -genkey -noout -out priv.pem
 ## Roadmap
 
 - [x] Set initial pressure in altitude estimation
-- [ ] Improve altitude estimation (filtering, sensor oversampling/FIFO, Kalman)
 - [ ] Onboard distance sensor vs vl53l0x
 - [ ] Extend driver for lsm9ds1 to read magnetometer
 - [ ] Extend Kalman filter to estimate yaw angle using magnetometer
