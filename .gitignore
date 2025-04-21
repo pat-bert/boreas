@@ -5,3 +5,4 @@
 # build
 /build*/
 prj.conf.old
+priv.pem
