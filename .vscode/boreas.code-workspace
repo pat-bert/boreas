@@ -42,17 +42,10 @@
 				}
 			]
 		},
-		"files.associations": {
-			"lm95234.h": "c",
-			"gpio.h": "c",
-			"sensor.h": "c",
-			"lsm9ds1.h": "c",
-			"devicetree_generated.h": "c"
-		}
 	},
 	"extensions": {
 		"recommendations": [
 			"nordic-semiconductor.nrf-connect-extension-pack"
 		]
-	}
+	},
 }
