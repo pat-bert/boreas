@@ -52,14 +52,14 @@ namespace Env
         return true;
     }
 
-    constexpr double celsius2kelvin(double celsius)
+    constexpr float celsius2kelvin(float celsius)
     {
-        return celsius + 273.15;
+        return celsius + 273.15F;
     }
 
     void thread(void *, void *, void *)
     {
-        const double pressureReference{0.0};
+        float pressureReference{0.0};
 
         const struct device *const pressureSensor = DEVICE_DT_GET_ONE(st_lps22hb_press);
         const struct device *const humiditySensor = DEVICE_DT_GET_ONE(st_hts221);
@@ -76,32 +76,51 @@ namespace Env
             return;
         }
 
+        int i{0};
+        while (i < 10)
+        {
+            struct sensor_value pressureRaw{};
+            const bool successPressure{process_sample_pressure(pressureSensor, &pressureRaw)};
+            k_msleep(100);
+
+            if (!successPressure)
+            {
+                continue;
+            }
+
+            const float currentPressure{sensor_value_to_float(&pressureRaw)};
+            pressureReference += (currentPressure - pressureReference) / (static_cast<float>(i) + 1.0F);
+            ++i;
+        }
+
+        LOG_INF("Reference pressure: %.5f kPa", pressureReference);
+
         while (true)
         {
             int64_t startTime = k_uptime_get();
 
-            struct sensor_value pressure{}, temperature{}, humidity{};
-            const bool successPressure{process_sample_pressure(pressureSensor, &pressure)};
+            struct sensor_value pressureRaw{}, temperatureRaw{}, humidityRaw{};
+            const bool successPressure{process_sample_pressure(pressureSensor, &pressureRaw)};
             if (successPressure)
             {
-                LOG_INF("Pressure:%.1f kPa", sensor_value_to_double(&pressure));
+                LOG_INF("Pressure:%.5f kPa", sensor_value_to_double(&pressureRaw));
             }
 
-            const bool successTempAndHum{process_sample_humidity(humiditySensor, &temperature, &humidity)};
+            const bool successTempAndHum{process_sample_humidity(humiditySensor, &temperatureRaw, &humidityRaw)};
             if (successTempAndHum)
             {
                 // Temperature seems to be inaccurate when powered via USB due to self-heating
-                LOG_INF("Temperature:%.1f C", sensor_value_to_double(&temperature));
-                LOG_INF("Relative Humidity:%.1f%%", sensor_value_to_double(&humidity));
+                LOG_INF("Temperature:%.1f C", sensor_value_to_double(&temperatureRaw));
+                LOG_INF("Relative Humidity:%.1f%%", sensor_value_to_double(&humidityRaw));
             }
 
             if (successPressure && successTempAndHum)
             {
-                const double pressureDouble{sensor_value_to_double(&pressure)};
-                const double temperatureDouble{sensor_value_to_double(&temperature)};
+                const float pressure{sensor_value_to_float(&pressureRaw)};
+                const float temperature{sensor_value_to_float(&temperatureRaw)};
 
-                constexpr double standardLapseRate{-0.0065};
-                const double height = ((std::pow(pressureReference / pressureDouble, 5.257) - 1.0) * celsius2kelvin(temperatureDouble)) / -standardLapseRate;
+                constexpr float standardLapseRate{-0.0065F};
+                const float height{((std::pow(pressureReference / pressure, 5.257F) - 1.0F) * celsius2kelvin(temperature)) / -standardLapseRate};
 
                 LOG_INF("Relative height:%.1f m", height);
             }
