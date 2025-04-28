@@ -6,6 +6,8 @@
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/logging/log.h>
 
+#include <zsl/zsl.h>
+
 #include <cmath>
 
 LOG_MODULE_REGISTER(environment);
@@ -61,7 +63,7 @@ namespace Env
 
     float calculateAltitude(float pressureReference, float pressure, float temperature)
     {
-        constexpr float barometricExponent{universalGasConstant * standardLapseRate / (earthAcceleration * molarMassAir)};
+        constexpr float barometricExponent{ZSL_IDEAL_GAS_CONST * standardLapseRate / (ZSL_GRAV_EARTH * molarMassAir)};
         return ((std::pow(pressureReference / pressure, barometricExponent) - 1.0F) * celsius2kelvin(temperature)) / standardLapseRate;
     }
 
