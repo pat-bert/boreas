@@ -37,6 +37,13 @@ namespace Imu
             return;
         }
 
+        const struct device *const mag = DEVICE_DT_GET_ONE(st_lis3mdl_magn);
+        if (!device_is_ready(mag))
+        {
+            LOG_ERR("%s: device not ready.", mag->name);
+            return;
+        }
+
         // Initial guess for system state
         float rollAngleEstimate{0.0F};
         float pitchAngleEstimate{0.0F};
@@ -58,6 +65,7 @@ namespace Imu
             int64_t startTime = k_uptime_get();
             struct sensor_value axRaw{}, ayRaw{}, azRaw{};
             struct sensor_value rollRateRaw{}, pitchRateRaw{}, yawRateRaw{};
+            struct sensor_value magXRaw{}, magYRaw{}, magZRaw{};
 
             // 1. Measure
             int success{sensor_sample_fetch_chan(imu, SENSOR_CHAN_ACCEL_XYZ)};
@@ -81,6 +89,17 @@ namespace Imu
             sensor_channel_get(imu, SENSOR_CHAN_GYRO_X, &rollRateRaw);
             sensor_channel_get(imu, SENSOR_CHAN_GYRO_Y, &pitchRateRaw);
             sensor_channel_get(imu, SENSOR_CHAN_GYRO_Z, &yawRateRaw);
+
+            success = sensor_sample_fetch_chan(mag, SENSOR_CHAN_MAGN_XYZ);
+            if (success != 0)
+            {
+                LOG_ERR("Error fetching magnetometer data.");
+                continue; // Skip this iteration if the fetch fails
+            }
+
+            sensor_channel_get(mag, SENSOR_CHAN_MAGN_X, &magXRaw);
+            sensor_channel_get(mag, SENSOR_CHAN_MAGN_Y, &magYRaw);
+            sensor_channel_get(mag, SENSOR_CHAN_MAGN_Z, &magZRaw);
 
             zsl_real_t accelerationMeasured[3] = {
                 sensor_value_to_float(&axRaw),

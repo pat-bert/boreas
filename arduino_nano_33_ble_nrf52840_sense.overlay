@@ -8,8 +8,8 @@
 // * Removing the node
 // * Connecting ADC channels
 
-// For more help, browse the DeviceTree documentation at https://docs.zephyrproject.org/latest/guides/dts/index.html
-// You can also visit the nRF DeviceTree extension documentation at https://docs.nordicsemi.com/bundle/nrf-connect-vscode/page/guides/ncs_configure_app.html#devicetree-support-in-the-extension
+// For more help, browse the DeviceTree documentation at https: //docs.zephyrproject.org/latest/guides/dts/index.html
+// You can also visit the nRF DeviceTree extension documentation at https: //docs.nordicsemi.com/bundle/nrf-connect-vscode/page/guides/ncs_configure_app.html#devicetree-support-in-the-extension
 
 /{
 	chosen{
@@ -18,12 +18,21 @@
 };
 
 &lsm9ds1 {
-    imu-odr = < 0x33 >;
+	imu-odr = <0x33>;
+};
+
+&i2c1 {
+	lis3mdl_magn: lis3mdl-magn@1e {
+		compatible = "st,lis3mdl-magn";
+		reg = <0x1e>;
+		status = "okay";
+		//irq-gpios = <&arduino_header 5 GPIO_ACTIVE_HIGH>; /* DRDY on A5 */
+	};
 };
 
 &flash0 {
 	/delete-node/ partitions;
-	
+
 	partitions {
 		compatible = "fixed-partitions";
 		#address-cells = <1>;
