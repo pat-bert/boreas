@@ -15,6 +15,8 @@ LOG_MODULE_REGISTER(environment);
 namespace Env
 {
     constexpr int64_t environmentTaskDurationMs{1000};
+    constexpr float gravityEarth{ZSL_GRAV_EARTH};
+    constexpr float idealGasConstant{ZSL_IDEAL_GAS_CONST};
 
     static bool process_sample_pressure(const struct device *dev, struct sensor_value *pressure)
     {
@@ -63,7 +65,7 @@ namespace Env
 
     float calculateAltitude(float pressureReference, float pressure, float temperature)
     {
-        constexpr float barometricExponent{ZSL_IDEAL_GAS_CONST * standardLapseRate / (ZSL_GRAV_EARTH * molarMassAir)};
+        constexpr float barometricExponent{idealGasConstant * standardLapseRate / (gravityEarth * molarMassAir)};
         return ((std::pow(pressureReference / pressure, barometricExponent) - 1.0F) * celsius2kelvin(temperature)) / standardLapseRate;
     }
 

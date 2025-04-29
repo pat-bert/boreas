@@ -18,7 +18,8 @@
 };
 
 &lsm9ds1 {
-	imu-odr = <0x33>;
+	// Accelerometer and gyro set to measure at 59.5 Hz
+	imu-odr = <34>;
 };
 
 &i2c1 {
@@ -26,8 +27,9 @@
 		compatible = "st,lis3mdl-magn";
 		reg = <0x1e>;
 		status = "okay";
-		//irq-gpios = <&arduino_header 5 GPIO_ACTIVE_HIGH>; /* DRDY on A5 */
 	};
+
+	clock-frequency = <I2C_BITRATE_FAST>;
 };
 
 &flash0 {

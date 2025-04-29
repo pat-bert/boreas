@@ -15,17 +15,27 @@ LOG_MODULE_REGISTER(imu);
 
 namespace Imu
 {
-    constexpr int64_t imuTaskDurationMs{1000 / 119};
+    constexpr float pi_f{ZSL_PI};
+    constexpr float degToRad_f{ZSL_DEG_TO_RAD};
+    constexpr float radToDeg_f{ZSL_RAD_TO_DEG};
+
+    constexpr int64_t imuTaskDurationMs{static_cast<int64_t>(1000.0 / 59.5)};
     constexpr float imuTaskDuration_f{static_cast<float>(imuTaskDurationMs) / 1000.0F};
+
+    constexpr float varianceAccelerometerNoise{0.09F * ZSL_GRAV_EARTH}; // Zero-g level offset 90 mg
+    constexpr float varianceGyrometerNoise{30.0F * ZSL_DEG_TO_RAD};     // Zero-rate output 30 dps
+
+    constexpr float absoluteSquareAccelerationLowerThreshold{0.8F * ZSL_GRAV_EARTH * 0.8F * ZSL_GRAV_EARTH};
+    constexpr float absoluteSquareAccelerationUpperThreshold{1.2F * ZSL_GRAV_EARTH * 1.2F * ZSL_GRAV_EARTH};
 
     float wrapToPi(float angle)
     {
-        angle = std::fmod(angle + ZSL_PI, 2.0F * ZSL_PI);
+        angle = std::fmod(angle + pi_f, 2.0F * pi_f);
         if (angle < 0)
         {
-            angle += 2.0F * ZSL_PI;
+            angle += 2.0F * pi_f;
         }
-        return angle - ZSL_PI;
+        return angle - pi_f;
     }
 
     void thread(void *, void *, void *)
@@ -53,8 +63,6 @@ namespace Imu
         float pitchAnglePredicted{0.0F};
         float yawAnglePredicted{0.0F};
 
-        constexpr float varianceAccelerometerNoise{0.09F * ZSL_GRAV_EARTH}; // Zero-g level offset 90 mg
-        constexpr float varianceGyrometerNoise{30.0F * ZSL_DEG_TO_RAD};     // Zero-rate output 30 dps
         float varianceOrientationEstimate{1.0F};
 
         float kalmanGain{0.0F};
@@ -68,34 +76,32 @@ namespace Imu
             struct sensor_value magXRaw{}, magYRaw{}, magZRaw{};
 
             // 1. Measure
-            int success{sensor_sample_fetch_chan(imu, SENSOR_CHAN_ACCEL_XYZ)};
+            int64_t accelGyroFetchStart = k_uptime_get();
+            int success{sensor_sample_fetch_chan(imu, SENSOR_CHAN_ALL)};
             if (success != 0)
             {
-                LOG_ERR("Error fetching accelerometer data.");
+                LOG_ERR("Error fetching accelerometer and gyroscope data.");
                 continue; // Skip this iteration if the fetch fails
             }
+
+            int64_t accelGyroFetchEnd = k_uptime_get();
 
             sensor_channel_get(imu, SENSOR_CHAN_ACCEL_X, &axRaw);
             sensor_channel_get(imu, SENSOR_CHAN_ACCEL_Y, &ayRaw);
             sensor_channel_get(imu, SENSOR_CHAN_ACCEL_Z, &azRaw);
-
-            success = sensor_sample_fetch_chan(imu, SENSOR_CHAN_GYRO_XYZ);
-            if (success != 0)
-            {
-                LOG_ERR("Error fetching gyroscope data.");
-                continue; // Skip this iteration if the fetch fails
-            }
-
             sensor_channel_get(imu, SENSOR_CHAN_GYRO_X, &rollRateRaw);
             sensor_channel_get(imu, SENSOR_CHAN_GYRO_Y, &pitchRateRaw);
             sensor_channel_get(imu, SENSOR_CHAN_GYRO_Z, &yawRateRaw);
 
+            int64_t magFetchStart = k_uptime_get();
             success = sensor_sample_fetch_chan(mag, SENSOR_CHAN_MAGN_XYZ);
             if (success != 0)
             {
                 LOG_ERR("Error fetching magnetometer data.");
                 continue; // Skip this iteration if the fetch fails
             }
+
+            int64_t magFetchEnd = k_uptime_get();
 
             sensor_channel_get(mag, SENSOR_CHAN_MAGN_X, &magXRaw);
             sensor_channel_get(mag, SENSOR_CHAN_MAGN_Y, &magYRaw);
@@ -105,49 +111,43 @@ namespace Imu
                 sensor_value_to_float(&axRaw),
                 sensor_value_to_float(&ayRaw),
                 sensor_value_to_float(&azRaw)};
+
+            zsl_real_t magneticFieldMeasured[3] = {
+                sensor_value_to_float(&magXRaw),
+                sensor_value_to_float(&magYRaw),
+                sensor_value_to_float(&magZRaw)};
+
             float rollRateMeasured{sensor_value_to_float(&rollRateRaw)};
             float pitchRateMeasured{sensor_value_to_float(&pitchRateRaw)};
             float yawRateMeasured{sensor_value_to_float(&yawRateRaw)};
 
-            float absoluteAcceleration{std::sqrt(
+            float absoluteAccelerationSquared{
                 accelerationMeasured[0] * accelerationMeasured[0] +
                 accelerationMeasured[1] * accelerationMeasured[1] +
-                accelerationMeasured[2] * accelerationMeasured[2])};
+                accelerationMeasured[2] * accelerationMeasured[2]};
 
             // Cannot use data from accelerometer with high disturbances away from earth acceleration
-            if ((absoluteAcceleration >= 0.8F * ZSL_GRAV_EARTH) && (absoluteAcceleration <= 1.2F * ZSL_GRAV_EARTH))
+            int64_t attitudeStart{0}, attitudeEnd{0};
+            if ((absoluteAccelerationSquared >= absoluteSquareAccelerationLowerThreshold) && (absoluteAccelerationSquared <= absoluteSquareAccelerationUpperThreshold))
             {
-                // TODO Estimate gyro bias covariance also in Kalman filter, assuming constant prediction model
-                float axNormalized{accelerationMeasured[0] / absoluteAcceleration};
-                float ayNormalized{accelerationMeasured[1] / absoluteAcceleration};
-                float azNormalized{accelerationMeasured[2] / absoluteAcceleration};
+                struct zsl_vec accelVec{};
+                accelVec.sz = 3;
+                accelVec.data = accelerationMeasured;
 
-                // Cross product between gravity vector [0 0 -1] and normalized acceleration vector
-                float rotationAxisX{-ayNormalized};
-                float rotationAxisY{axNormalized};
-                float rotationAxisZ{0.0F}; // single rotation cannot happen around gravity vector to align with measured acceleration
-                float rotationAngle{std::acos(-azNormalized)};
-
-                // Convert to quaternion
-                float qw{std::cos(0.5F * rotationAngle)};
-                float sinThetaHalf{std::sin(0.5F * rotationAngle)};
-                float qx{rotationAxisX * sinThetaHalf};
-                float qy{rotationAxisY * sinThetaHalf};
-                float qz{rotationAxisZ * sinThetaHalf};
-
-                struct zsl_vec accel_vec{};
-                accel_vec.sz = 3;
-                accel_vec.data = accelerationMeasured;
+                struct zsl_vec magVec{};
+                magVec.sz = 3;
+                magVec.data = magneticFieldMeasured;
 
                 // Yaw angle can only be measured based on magnetometer
-                zsl_attitude attitudeAccelerometer{};
-                const int ret{zsl_att_from_accel(&accel_vec, &attitudeAccelerometer)};
-                if (ret != 0)
+                zsl_attitude attitudeAccelMag{};
+                attitudeStart = k_uptime_get();
+                if (zsl_att_from_accelmag(&accelVec, &magVec, &attitudeAccelMag) != 0)
                 {
                     LOG_ERR("Error calculating roll and pitch from accelerometer data.");
                     continue; // Skip this iteration if the calculation fails
                 }
-
+                attitudeEnd = k_uptime_get();
+                
                 // 2.1 Calculate gain
                 kalmanGain = varianceOrientationEstimate / (varianceOrientationEstimate + varianceAccelerometerNoise);
 
@@ -155,9 +155,9 @@ namespace Imu
                 varianceOrientationEstimate = (1.0F - kalmanGain) * varianceOrientationEstimate;
 
                 // 2.3 State update
-                rollAngleEstimate += kalmanGain * (ZSL_DEG_TO_RAD * attitudeAccelerometer.roll - rollAnglePredicted);
-                pitchAngleEstimate += kalmanGain * (ZSL_DEG_TO_RAD * attitudeAccelerometer.pitch - pitchAnglePredicted);
-                yawAngleEstimate += kalmanGain * (ZSL_DEG_TO_RAD * attitudeAccelerometer.yaw - yawAnglePredicted);
+                rollAngleEstimate += kalmanGain * (degToRad_f * attitudeAccelMag.roll - rollAnglePredicted);
+                pitchAngleEstimate += kalmanGain * (degToRad_f * attitudeAccelMag.pitch - pitchAnglePredicted);
+                yawAngleEstimate += kalmanGain * (degToRad_f * attitudeAccelMag.yaw - yawAnglePredicted);
 
                 // Clamp to [-pi, +pi]
                 rollAngleEstimate = wrapToPi(rollAngleEstimate);
@@ -185,7 +185,7 @@ namespace Imu
             ++count;
             if (count % 50 == 0)
             {
-                LOG_INF("orientation fused x:%f° y:%f° z:%f°", ZSL_RAD_TO_DEG * rollAngleEstimate, ZSL_RAD_TO_DEG * pitchAngleEstimate, ZSL_RAD_TO_DEG * yawAngleEstimate);
+                LOG_INF("orientation fused x:%f° y:%f° z:%f°", radToDeg_f * rollAngleEstimate, radToDeg_f * pitchAngleEstimate, radToDeg_f * yawAngleEstimate);
             }
 
             int64_t elapsedTime = k_uptime_get() - startTime;
@@ -198,6 +198,9 @@ namespace Imu
             else
             {
                 LOG_ERR("Deadline missed. Elapsed time %lld ms", elapsedTime);
+                LOG_INF("Accelerometer/Gyroscope fetch time: %lld ms", accelGyroFetchEnd - accelGyroFetchStart);
+                LOG_INF("Magnetometer fetch time: %lld ms", magFetchEnd - magFetchStart);
+                LOG_INF("Attitude calculation time: %lld ms", attitudeEnd - attitudeStart);
             }
         }
     }
