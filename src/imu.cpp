@@ -22,11 +22,11 @@ namespace Imu
     constexpr int64_t imuTaskDurationMs{static_cast<int64_t>(1000.0 / 59.5)};
     constexpr float imuTaskDuration_f{static_cast<float>(imuTaskDurationMs) / 1000.0F};
 
-    constexpr float varianceAccelerometerNoise{0.09F * ZSL_GRAV_EARTH}; // Zero-g level offset 90 mg
-    constexpr float varianceGyrometerNoise{30.0F * ZSL_DEG_TO_RAD};     // Zero-rate output 30 dps
+    constexpr float varianceAccelerometerNoise{0.09F * static_cast<float>(ZSL_GRAV_EARTH)}; // Zero-g level offset 90 mg
+    constexpr float varianceGyrometerNoise{30.0F * static_cast<float>(ZSL_RAD_TO_DEG)};     // Zero-rate output 30 dps
 
-    constexpr float absoluteSquareAccelerationLowerThreshold{0.8F * ZSL_GRAV_EARTH * 0.8F * ZSL_GRAV_EARTH};
-    constexpr float absoluteSquareAccelerationUpperThreshold{1.2F * ZSL_GRAV_EARTH * 1.2F * ZSL_GRAV_EARTH};
+    constexpr float absoluteSquareAccelerationLowerThreshold{0.8F * static_cast<float>(ZSL_GRAV_EARTH) * 0.8F * static_cast<float>(ZSL_GRAV_EARTH)};
+    constexpr float absoluteSquareAccelerationUpperThreshold{1.2F * static_cast<float>(ZSL_GRAV_EARTH) * 1.2F * static_cast<float>(ZSL_GRAV_EARTH)};
 
     float wrapToPi(float angle)
     {
@@ -147,7 +147,7 @@ namespace Imu
                     continue; // Skip this iteration if the calculation fails
                 }
                 attitudeEnd = k_uptime_get();
-                
+
                 // 2.1 Calculate gain
                 kalmanGain = varianceOrientationEstimate / (varianceOrientationEstimate + varianceAccelerometerNoise);
 
@@ -185,7 +185,7 @@ namespace Imu
             ++count;
             if (count % 50 == 0)
             {
-                LOG_INF("orientation fused x:%f° y:%f° z:%f°", radToDeg_f * rollAngleEstimate, radToDeg_f * pitchAngleEstimate, radToDeg_f * yawAngleEstimate);
+                LOG_INF("orientation fused x:%f° y:%f° z:%f°", static_cast<double>(radToDeg_f * rollAngleEstimate), static_cast<double>(radToDeg_f * pitchAngleEstimate), static_cast<double>(radToDeg_f * yawAngleEstimate));
             }
 
             int64_t elapsedTime = k_uptime_get() - startTime;

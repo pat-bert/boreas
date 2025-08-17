@@ -105,7 +105,7 @@ namespace Env
             ++i;
         }
 
-        LOG_INF("Reference pressure: %.5f kPa", pressureReference);
+        LOG_INF("Reference pressure: %.5f kPa", static_cast<double>(pressureReference));
 
         while (true)
         {
@@ -131,7 +131,7 @@ namespace Env
                 const float pressure{sensor_value_to_float(&pressureRaw)};
                 const float temperature{sensor_value_to_float(&temperatureRaw)};
                 const float altitude{calculateAltitude(pressureReference, pressure, temperature)};
-                LOG_INF("Relative altitude:%.2f m", altitude);
+                LOG_INF("Relative altitude:%.2f m", static_cast<double>(altitude));
             }
 
             int64_t elapsedTime = k_uptime_get() - startTime;
